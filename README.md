@@ -49,3 +49,11 @@ bash platform/up.sh departments.sh plan                # preview changes for dep
 bash platform/up.sh departments.sh                     # apply; a removed YAML tears that department down
 bash platform/up.sh isolation-test.sh                  # pass/fail matrix from inside department VMs
 ```
+
+Failure demo and monitoring:
+
+```bash
+bash platform/failure-test.sh cmp1                    # or ctl1; writes reports/<date>-<node>-failure.md
+```
+
+Grafana: `http://10.20.0.13:3000`, dashboard "IronCloud overview" (user `admin`, password `grafana_admin_password` in `ctl1:/etc/kolla/passwords.yml`). Runbooks: [docs/runbooks](docs/runbooks).

@@ -42,16 +42,25 @@ How isolation works:
 | Department → `10.20.1.10` anything else | blocked | nftables on ctl1 `svc0` |
 | Platform `10.20.1.10` → VM ICMP/SSH | open | Security group rule for `10.20.1.10/32` |
 
-## Phase 3 — Failure demo and operations
+## Phase 3 — Failure demo and operations (done)
 
-Prerequisite: the user running the scripts can control Hyper-V VMs (Hyper-V Administrators group or an elevated shell).
+[`platform/failure-test.sh`](../platform/failure-test.sh) runs on the Windows host: it cuts a node's power with `sysrq` (no sync, no clean shutdown), records a timeline, checks data integrity and writes a report. Powering the node back on needs Hyper-V rights (UAC prompt).
 
-- [ ] A failure script writes test data and its checksum to a volume, hard-powers-off a node, and records a timeline
-- [ ] `cmp1` failure report shows: when `nova-compute` was marked down, Ceph `HEALTH_WARN` with degraded PGs while still writable, `nova evacuate` duration, VM back on `cmp2`, checksum match, PGs back to `active+clean` after `cmp1` returns
-- [ ] `ctl1` failure report shows: APIs down, running VMs still up, same-network traffic still flowing, routed traffic stopped, recovery time after `ctl1` returns
-- [ ] Reports are written to `reports/` as Markdown
-- [ ] Prometheus + Grafana dashboards for nodes, Ceph and OpenStack services, scraping department VMs from `10.20.1.10`
-- [ ] Runbooks: compute node failure, controller failure, Ceph OSD down, add a department, remove a department, rebuild the lab
+- [x] A failure script writes test data and its checksum, hard-powers-off a node, and records a timeline
+- [x] [`cmp1` report](../reports/20261019-1650-cmp1-failure.md): OSD down at 28 s, Ceph writable while degraded, `nova-compute` down at 59 s, VM rebuilt on `cmp2` from its Ceph volume and reachable at 113 s, checksums match, `HEALTH_OK` 12 s after the OSD returned
+- [x] [`ctl1` report](../reports/20261019-1711-ctl1-failure.md): APIs down, VMs kept running, east-west traffic lost 0 of 513 pings, routed traffic down until the L3 agent rebuilt the router, 27 s disk stall until Ceph marked ctl1's OSD down, monitoring stayed up
+- [x] Reports are written to [`reports/`](../reports) as Markdown, with operator notes on what the numbers mean
+- [x] Prometheus + Grafana on `cmp2` (so they survive a controller failure) with the [IronCloud overview](../platform/grafana/ironcloud-overview.json) dashboard: nodes, Ceph, OpenStack services and department VMs (libvirt exporter, labelled by project)
+- [x] Runbooks in [`docs/runbooks`](runbooks): [compute node failure](runbooks/compute-node-failure.md), [controller failure](runbooks/controller-failure.md), [Ceph OSD down](runbooks/ceph-osd-down.md), [add a department](runbooks/add-department.md), [remove a department](runbooks/remove-department.md), [rebuild the lab](runbooks/rebuild-lab.md)
+
+Findings the tests surfaced (now handled in scripts and runbooks):
+
+| Finding | Handling |
+|---|---|
+| Compute API 2.95+ leaves an evacuated server SHUTOFF | Runbook and script start it explicitly after checking it |
+| First live migration back after an evacuation fails with `DestinationDiskExists` | Retry; manual cleanup step documented |
+| After the controller outage one compute kept a stale security-group member set (same-department traffic one-way) | Isolation test after recovery; restart the OVS agent on that compute |
+| Writes stall ~27 s when a node with an OSD dies | Expected Ceph behaviour (heartbeat grace); documented |
 
 ## Out of scope
 
