@@ -113,10 +113,12 @@ stage_ceph() {
 stage_openstack() {
     log "openstack: prechecks, deploy, post-deploy"
     config
-    kolla-ansible prechecks -i "$INV"
+    # Upstream quay.io images are flagged as test images; fine for a lab, production builds its own.
+    kolla-ansible prechecks -i "$INV" --use-test-images
     kolla-ansible deploy -i "$INV"
     kolla-ansible post-deploy -i "$INV"
-    mkdir -p ~/.config/openstack && cp /etc/kolla/clouds.yaml ~/.config/openstack/clouds.yaml
+    mkdir -p ~/.config/openstack
+    sudo install -o "$USER" -m 600 /etc/kolla/clouds.yaml ~/.config/openstack/clouds.yaml
 }
 
 stages=("$@")

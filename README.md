@@ -31,3 +31,14 @@ The whole platform runs on one laptop as 3 nested Hyper-V VMs, with no hardware 
 - [docs/roadmap.md](docs/roadmap.md): phases and the checks that mark each one done
 - [docs/cost-plan.md](docs/cost-plan.md): lab sizing and budget
 - [lab/hyperv](lab/hyperv): scripts that create the lab VMs
+- [platform](platform): Ceph (cephadm, 20.2 Tentacle) and OpenStack 2026.1 (Kolla-Ansible) deployment
+
+Build it (Windows host, Git Bash unless noted):
+
+```bash
+powershell.exe -File lab/hyperv/prepare-images.ps1   # base disk + cloud-init seeds, no admin
+# then, in an elevated Windows PowerShell: lab\hyperv
+ew-lab.ps1
+bash platform/up.sh                                   # deps, prep, bootstrap, ceph, openstack (~30 min)
+bash platform/up.sh smoke-test.sh                     # CirrOS VM on a Ceph volume with a floating IP
+```
