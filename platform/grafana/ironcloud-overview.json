@@ -1,0 +1,132 @@
+{
+  "title": "IronCloud overview",
+  "uid": "ironcloud-overview",
+  "description": "Platform health at a glance: nodes, Ceph, OpenStack services and department VMs. Built for the failure demo.",
+  "tags": ["ironcloud"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      { "name": "datasource", "label": "Data source", "type": "datasource", "query": "prometheus", "hide": 0, "current": {} }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat", "title": "Ceph health", "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "max(ceph_health_status)" } ],
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": {
+          "0": { "text": "HEALTH_OK", "color": "green" },
+          "1": { "text": "HEALTH_WARN", "color": "orange" },
+          "2": { "text": "HEALTH_ERR", "color": "red" } } } ],
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "green" }, { "value": 1, "color": "orange" }, { "value": 2, "color": "red" } ] }
+      } },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat", "title": "OSDs up", "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "sum(ceph_osd_up)" } ],
+      "fieldConfig": { "defaults": { "max": 3, "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 2, "color": "orange" }, { "value": 3, "color": "green" } ] } } },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat", "title": "Mons in quorum", "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "sum(ceph_mon_quorum_status)" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 2, "color": "orange" }, { "value": 3, "color": "green" } ] } } },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat", "title": "Degraded PGs", "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "sum(ceph_pg_degraded)" } ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "green" }, { "value": 1, "color": "orange" } ] } } },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat", "title": "nova-compute up", "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "sum(openstack_nova_agent_state{service=\"nova-compute\"})" } ],
+      "fieldConfig": { "defaults": { "noValue": "API down", "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 1, "color": "orange" }, { "value": 2, "color": "green" } ] } } },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat", "title": "Department VMs running", "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "count(libvirt_domain_info_state == 1)" } ],
+      "fieldConfig": { "defaults": { "noValue": "0", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "state-timeline", "title": "Nodes (node exporter reachable)", "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "up{job=\"node\"}", "legendFormat": "{{instance}}" } ],
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } } ],
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 1, "color": "green" } ] }
+      } },
+      "options": { "showValue": "never", "mergeValues": true }
+    },
+    {
+      "type": "state-timeline", "title": "Ceph OSDs", "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "max by (ceph_daemon) (ceph_osd_up)", "legendFormat": "{{ceph_daemon}}" } ],
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } } ],
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 1, "color": "green" } ] }
+      } },
+      "options": { "showValue": "never", "mergeValues": true }
+    },
+    {
+      "type": "state-timeline", "title": "Department VMs (libvirt state, by hypervisor)", "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A",
+        "expr": "max by (project_name, instance_name, instance) (libvirt_domain_info_state * on (domain, instance) group_left (project_name, instance_name) libvirt_domain_openstack_info)",
+        "legendFormat": "{{project_name}}/{{instance_name}} @ {{instance}}" } ],
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "1": { "text": "running", "color": "green" }, "3": { "text": "paused", "color": "orange" }, "5": { "text": "shut off", "color": "red" } } } ],
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 1, "color": "green" } ] }
+      } },
+      "options": { "showValue": "never", "mergeValues": true }
+    },
+    {
+      "type": "timeseries", "title": "Degraded and undersized PGs", "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(ceph_pg_degraded)", "legendFormat": "degraded" },
+        { "refId": "B", "expr": "sum(ceph_pg_undersized)", "legendFormat": "undersized" },
+        { "refId": "C", "expr": "sum(ceph_pg_active)", "legendFormat": "active" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2 } } }
+    },
+    {
+      "type": "timeseries", "title": "Available memory per node", "gridPos": { "x": 0, "y": 18, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "node_memory_MemAvailable_bytes", "legendFormat": "{{instance}}" } ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } }
+    },
+    {
+      "type": "state-timeline", "title": "Control plane services (scrape targets)", "gridPos": { "x": 12, "y": 18, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [ { "refId": "A", "expr": "up{job=~\"mysqld|rabbitmq|memcached|openstack_exporter\"}", "legendFormat": "{{job}}" } ],
+      "fieldConfig": { "defaults": {
+        "mappings": [ { "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } } ],
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [ { "value": null, "color": "red" }, { "value": 1, "color": "green" } ] }
+      } },
+      "options": { "showValue": "never", "mergeValues": true }
+    }
+  ]
+}

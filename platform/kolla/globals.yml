@@ -38,3 +38,17 @@ designate_worker_workers: "1"
 designate_producer_workers: "1"
 designate_mdns_workers: "1"
 designate_backend_bind9_workers: "1"
+
+# Monitoring on cmp2 (see hosts.ini), so it survives and records a controller failure.
+# Heavy or unused parts are off: cadvisor, alertmanager, blackbox, OVS network exporter.
+enable_prometheus: "yes"
+enable_grafana: "yes"
+enable_prometheus_cadvisor: "no"
+enable_prometheus_alertmanager: "no"
+enable_prometheus_blackbox_exporter: "no"
+enable_prometheus_openstack_network_exporter: "no"
+enable_prometheus_ceph_mgr_exporter: "yes"
+prometheus_ceph_mgr_exporter_endpoints: ["10.20.0.11:9283", "10.20.0.12:9283"]
+# No HAProxy, so the VIP (ctl1) does not forward to cmp2: point clients at cmp2 directly.
+grafana_internal_fqdn: "10.20.0.13"
+prometheus_internal_fqdn: "10.20.0.13"

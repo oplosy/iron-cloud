@@ -43,9 +43,14 @@ stage_deps() {
 # Copies repo config to /etc/kolla; runs before every stage that uses it.
 config() {
     cp "$HERE/kolla/globals.yml" /etc/kolla/globals.yml
+    mkdir -p /etc/kolla/config/grafana/dashboards
+    cp "$HERE"/grafana/*.json /etc/kolla/config/grafana/dashboards/
     cat "$HERE/kolla/hosts.ini" > "$INV"
     sed -n '/^\[baremetal:children\]/,$p' "$VENV/share/kolla-ansible/ansible/inventory/multinode" >> "$INV"
     grep -q '^\[baremetal:children\]' "$INV" || { echo "Kolla multinode inventory layout changed" >&2; exit 1; }
+    # Prometheus scrapes the OpenStack exporter at the VIP (ctl1), so it must run there, not on cmp2.
+    sed -i '/^\[prometheus-openstack-exporter:children\]/{n;s/^monitoring$/control/}' "$INV"
+    grep -A1 '^\[prometheus-openstack-exporter:children\]' "$INV" | grep -qx control || { echo "openstack-exporter group not moved" >&2; exit 1; }
 }
 
 stage_prep() {
@@ -121,6 +126,13 @@ stage_ceph() {
     sudo ceph config set osd osd_memory_target_autotune false
     sudo ceph config set osd osd_memory_target 1073741824
     sudo ceph orch apply osd --all-available-devices
+    sudo ceph mgr module enable prometheus
+
+    # Admin CLI on every node, so Ceph can be operated while ctl1 is down.
+    for n in cmp1 cmp2; do
+        ssh "$n" 'sudo add-apt-repository -y cloud-archive:gazpacho >/dev/null && sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq --no-install-recommends ceph-common >/dev/null'
+        sudo ceph orch host label add "$n" _admin
+    done
 
     log "ceph: waiting for 3 OSDs"
     for _ in $(seq 60); do
