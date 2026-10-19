@@ -1,0 +1,26 @@
+---
+# Kolla-Ansible 2026.1 (Gazpacho). Only values that differ from the defaults.
+kolla_base_distro: "ubuntu"
+
+network_interface: "mgmt0"
+neutron_external_interface: "ext0"
+neutron_plugin_agent: "openvswitch"
+
+# Single controller, no HA: APIs listen on ctl1 directly.
+enable_haproxy: "no"
+enable_proxysql: "no"
+kolla_internal_vip_address: "10.20.0.11"
+
+# RAM budget: fewer API workers, no services the demo does not use.
+openstack_service_workers: "2"
+enable_fluentd: "no"
+enable_heat: "no"
+enable_cinder: "yes"
+enable_cinder_backup: "no"
+
+nova_compute_virt_type: "kvm"
+
+# External Ceph (cephadm, see deploy.sh). Nova uses the cinder key.
+glance_backend_ceph: "yes"
+cinder_backend_ceph: "yes"
+nova_backend_ceph: "yes"
