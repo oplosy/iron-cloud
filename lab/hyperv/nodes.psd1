@@ -13,7 +13,7 @@
     # MACs are locally administered (02:...) so they never collide with Hyper-V's dynamic pool.
     Nodes = @(
         @{ Name = 'ctl1'; Cpu = 4; MemoryGB = 10; OsDiskGB = 40; OsdDiskGB = 15; MgmtIp = '10.20.0.11'; MgmtMac = '022000000011'; ProviderMac = '022000000111' }
-        @{ Name = 'cmp1'; Cpu = 4; MemoryGB = 5;  OsDiskGB = 25; OsdDiskGB = 15; MgmtIp = '10.20.0.12'; MgmtMac = '022000000012'; ProviderMac = '022000000112' }
-        @{ Name = 'cmp2'; Cpu = 4; MemoryGB = 5;  OsDiskGB = 25; OsdDiskGB = 15; MgmtIp = '10.20.0.13'; MgmtMac = '022000000013'; ProviderMac = '022000000113' }
+        @{ Name = 'cmp1'; Cpu = 4; MemoryGB = 4;  OsDiskGB = 25; OsdDiskGB = 15; MgmtIp = '10.20.0.12'; MgmtMac = '022000000012'; ProviderMac = '022000000112' }
+        @{ Name = 'cmp2'; Cpu = 4; MemoryGB = 4;  OsDiskGB = 25; OsdDiskGB = 15; MgmtIp = '10.20.0.13'; MgmtMac = '022000000013'; ProviderMac = '022000000113' }
     )
 }
