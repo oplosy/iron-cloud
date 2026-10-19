@@ -1,0 +1,12 @@
+description: Finance department
+cidr: 192.168.10.0/24
+quota:
+  instances: 2
+  cores: 2
+  ram_mb: 512
+  volumes: 2
+  gigabytes: 2
+  floating_ips: 2
+vms:
+  - name: ledger
+    flavor: m1.tiny

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs on ctl1. Deploys Ceph (cephadm) and OpenStack (Kolla-Ansible) on the 3 lab nodes.
-# Usage: deploy.sh [stage...]   stages: deps prep bootstrap ceph openstack (default: all, in order)
+# Usage: deploy.sh [stage...]   stages: deps prep shared bootstrap ceph openstack (default: all, in order)
 # Every stage is safe to re-run.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -30,7 +30,7 @@ stage_deps() {
     "$VENV/bin/pip" install -q "kolla-ansible==$KOLLA_VERSION"
     # Separate venv: the client follows OpenStack upper-constraints, kolla-ansible does not.
     [ -d "$OSC_VENV" ] || python3 -m venv "$OSC_VENV"
-    "$OSC_VENV/bin/pip" install -q python-openstackclient -c https://releases.openstack.org/constraints/upper/2026.1
+    "$OSC_VENV/bin/pip" install -q python-openstackclient python-designateclient -c https://releases.openstack.org/constraints/upper/2026.1
     sudo mkdir -p /etc/kolla && sudo chown "$USER:" /etc/kolla
     if [ ! -f /etc/kolla/passwords.yml ]; then
         cp "$VENV/share/kolla-ansible/etc_examples/kolla/passwords.yml" /etc/kolla/
@@ -61,6 +61,42 @@ grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fs
 DEBIAN_FRONTEND=noninteractive apt-get install -yq lvm2 >/dev/null
 EOF
     done
+}
+
+# Shared-services address on the provider network (ctl1 only). Departments reach it through
+# their routers; nftables lets them use DNS and ping, nothing else on ctl1.
+stage_shared() {
+    log "shared: 10.20.1.10 on svc0, firewalled to DNS and ICMP"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq nftables >/dev/null
+    sudo tee /etc/netplan/60-svc0.yaml >/dev/null <<'EOF'
+network:
+  version: 2
+  ethernets:
+    svc0:
+      match: {macaddress: "02:20:00:00:02:11"}
+      set-name: svc0
+      addresses: [10.20.1.10/24]
+EOF
+    sudo chmod 600 /etc/netplan/60-svc0.yaml
+    sudo netplan apply
+    sudo tee /etc/nftables.conf >/dev/null <<'EOF'
+#!/usr/sbin/nft -f
+# Only this table is managed here; no "flush ruleset", so other rules stay intact.
+table inet ironcloud
+delete table inet ironcloud
+table inet ironcloud {
+    chain input {
+        type filter hook input priority 0; policy accept;
+        iifname "svc0" ct state established,related accept
+        iifname "svc0" meta l4proto { icmp, ipv6-icmp } accept
+        iifname "svc0" meta l4proto { tcp, udp } th dport 53 accept
+        iifname "svc0" drop
+    }
+}
+EOF
+    sudo systemctl enable -q nftables
+    sudo systemctl restart nftables
+    ip -br addr show svc0
 }
 
 stage_bootstrap() {
@@ -122,7 +158,7 @@ stage_openstack() {
 }
 
 stages=("$@")
-[ ${#stages[@]} -gt 0 ] || stages=(deps prep bootstrap ceph openstack)
+[ ${#stages[@]} -gt 0 ] || stages=(deps prep shared bootstrap ceph openstack)
 for s in "${stages[@]}"; do
     declare -F "stage_$s" >/dev/null || { echo "Unknown stage: $s" >&2; exit 1; }
     "stage_$s"

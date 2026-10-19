@@ -52,6 +52,13 @@ foreach ($n in $cfg.Nodes) {
     Set-VMFirmware $vm -FirstBootDevice (Get-VMHardDiskDrive $vm | Where-Object Path -eq $os)
 }
 
+# Shared-services NIC on the provider network (DNS for departments); hot-adds to running VMs too.
+foreach ($n in $cfg.Nodes | Where-Object { $_.ServiceMac }) {
+    if (-not (Get-VMNetworkAdapter -VMName $n.Name | Where-Object MacAddress -eq $n.ServiceMac)) {
+        Add-VMNetworkAdapter -VMName $n.Name -SwitchName $cfg.Switches[1].Name -StaticMacAddress $n.ServiceMac
+    }
+}
+
 Get-VM -Name $cfg.Nodes.Name | Where-Object State -ne 'Running' | Start-VM
 Get-VM -Name $cfg.Nodes.Name | Format-Table Name, State, ProcessorCount, @{ n = 'MemoryGB'; e = { $_.MemoryStartup / 1GB } }
 Write-Host "SSH: ssh -i ~/.ssh/ironcloud_ed25519 ubuntu@<ip>  ($(($cfg.Nodes | ForEach-Object { "$($_.Name)=$($_.MgmtIp)" }) -join ', '))"

@@ -1,0 +1,14 @@
+description: Engineering department
+cidr: 192.168.20.0/24
+quota:
+  instances: 2
+  cores: 2
+  ram_mb: 512
+  volumes: 2
+  gigabytes: 2
+  floating_ips: 2
+vms:
+  - name: web
+    flavor: m1.tiny
+  - name: build
+    flavor: m1.tiny
