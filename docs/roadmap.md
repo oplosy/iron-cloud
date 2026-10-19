@@ -1,0 +1,53 @@
+# Roadmap
+
+Each phase is done when every check under it passes and can be re-run from the repo. Lab sizing and the zero-budget decision are in [cost-plan.md](cost-plan.md).
+
+## Phase 0 — Lab ✅
+
+- [x] 3 nested Hyper-V VMs (`ctl1`, `cmp1`, `cmp2`) created from [`lab/hyperv`](../lab/hyperv)
+- [x] cloud-init done on all nodes; `/dev/kvm` present (nested virtualization works)
+- [x] Nodes reach each other by name and reach the internet through host NAT
+- [x] Each node has a separate raw disk for a Ceph OSD
+
+## Phase 1 — Platform
+
+Kolla-Ansible multinode (`ctl1` control + network, `cmp1`/`cmp2` compute) and Ceph (cephadm, one OSD per node).
+
+- [ ] `openstack compute service list` shows `nova-compute` up on `cmp1` and `cmp2`
+- [ ] `ceph -s` is `HEALTH_OK` with 3 OSDs up/in; RBD pools use `size 3 / min_size 2`
+- [ ] A CirrOS VM boots from a Ceph-backed volume, gets a floating IP and answers ping from the host
+- [ ] The whole platform rebuilds from scratch with documented commands only (recreate VMs → deploy)
+- [ ] `ctl1` RAM is measured after deploy and lowered to measured use + 1 GB
+
+## Phase 2 — Self-service and network isolation
+
+A department asks for an environment by adding `departments/<name>.yaml` (quota, network CIDR, VMs). OpenTofu with the OpenStack provider applies it.
+
+- [ ] One apply creates the project, users/roles, quota, network, subnet, router, security groups, VMs and DNS records (Designate)
+- [ ] A request over quota fails before anything is created
+- [ ] Deleting the YAML and applying removes everything the department had
+- [ ] Shared services (DNS resolver, monitoring) are reachable from every department
+- [ ] Monitoring can scrape department VMs; departments cannot reach the monitoring host's other ports
+- [ ] Department A cannot reach department B: ping and TCP to B's private and floating IPs are blocked
+- [ ] An isolation test script runs from inside tenant VMs and prints a pass/fail matrix (source × target × port)
+
+## Phase 3 — Failure demo and operations
+
+Prerequisite: the user running the scripts can control Hyper-V VMs (Hyper-V Administrators group or an elevated shell).
+
+- [ ] A failure script writes test data and its checksum to a volume, hard-powers-off a node, and records a timeline
+- [ ] `cmp1` failure report shows: when `nova-compute` was marked down, Ceph `HEALTH_WARN` with degraded PGs while still writable, `nova evacuate` duration, VM back on `cmp2`, checksum match, PGs back to `active+clean` after `cmp1` returns
+- [ ] `ctl1` failure report shows: APIs down, running VMs still up, same-network traffic still flowing, routed traffic stopped, recovery time after `ctl1` returns
+- [ ] Reports are written to `reports/` as Markdown
+- [ ] Prometheus + Grafana dashboards for nodes, Ceph and OpenStack services
+- [ ] Runbooks: compute node failure, controller failure, Ceph OSD down, add a department, remove a department, rebuild the lab
+
+## Out of scope
+
+| Item | Reason |
+|---|---|
+| Physical hardware | Zero budget; a node failure is simulated by hard-powering-off its VM |
+| Control plane HA (3 controllers, Galera, keepalived) | Not enough RAM; the `ctl1` failure demo shows the consequence instead |
+| Automatic instance HA (Masakari) | Heavy to run; evacuation is manual and timed |
+| External identity (LDAP/FreeIPA) | Keystone projects and roles cover per-department access |
+| Backups, capacity planning beyond quotas, hardware maintenance processes | Each is a project of its own |
