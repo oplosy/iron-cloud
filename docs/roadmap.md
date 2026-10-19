@@ -9,15 +9,15 @@ Each phase is done when every check under it passes and can be re-run from the r
 - [x] Nodes reach each other by name and reach the internet through host NAT
 - [x] Each node has a separate raw disk for a Ceph OSD
 
-## Phase 1 — Platform (4/5)
+## Phase 1 — Platform (done)
 
 Kolla-Ansible multinode (`ctl1` control + network, `cmp1`/`cmp2` compute) and Ceph (cephadm, one OSD per node).
 
 - [x] `openstack compute service list` shows `nova-compute` up on `cmp1` and `cmp2`
 - [x] `ceph -s` is `HEALTH_OK` with 3 OSDs up/in; RBD pools use `size 3 / min_size 2`
 - [x] A CirrOS VM boots from a Ceph-backed volume, gets a floating IP and answers ping from the host ([`platform/smoke-test.sh`](../platform/smoke-test.sh))
-- [ ] The whole platform rebuilds from scratch with documented commands only (recreate VMs → deploy). Every stage has run, but not yet as one clean run on fresh VMs.
-- [x] `ctl1` RAM is measured after deploy and lowered to measured use + 1 GB (7.2 GB used, OSD growth to 1 GB → 9 GB)
+- [x] The whole platform rebuilds from scratch with documented commands only ([rebuild runbook](runbooks/rebuild-lab.md)): fresh VMs, one `platform/up.sh` run (~25 min), smoke test pinged from the host, both departments applied, isolation test 40/40. The clean run caught one bug the stage-by-stage runs had hidden: ssh left stdio non-blocking and ansible-core refused to start; `deploy.sh` now resets it.
+- [x] `ctl1` RAM is measured after deploy and lowered to measured use + 1 GB (7.2 GB used, OSD growth to 1 GB → 9 GB; raised to 10 GB in Phase 3 after Designate pushed it into swap)
 
 ## Phase 2 — Self-service and network isolation (done)
 

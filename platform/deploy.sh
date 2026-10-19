@@ -15,6 +15,9 @@ MON_IP=10.20.0.11
 CEPH_IMAGE=quay.io/ceph/ceph:v20.2.0
 export PATH="$VENV/bin:$PATH" # kolla-ansible looks up ansible-playbook on PATH
 log() { echo "==> $(date +%T) $*"; }
+# ssh (prep and ceph stages) can leave the shared stdio non-blocking, and ansible-core refuses
+# to run like that ("Ansible requires blocking IO"). O_NONBLOCK is shared, so reset it first.
+kolla() { python3 -c 'import os; [os.set_blocking(fd, True) for fd in (0, 1, 2)]'; kolla-ansible "$@"; }
 
 stage_deps() {
     log "deps: packages, kolla-ansible $KOLLA_VERSION, openstack client"
@@ -37,7 +40,7 @@ stage_deps() {
         kolla-genpwd
     fi
     config
-    kolla-ansible install-deps
+    kolla install-deps
 }
 
 # Copies repo config to /etc/kolla; runs before every stage that uses it.
@@ -107,7 +110,7 @@ EOF
 stage_bootstrap() {
     log "bootstrap: Docker and host settings via kolla-ansible"
     config
-    kolla-ansible bootstrap-servers -i "$INV"
+    kolla bootstrap-servers -i "$INV"
 }
 
 stage_ceph() {
@@ -162,9 +165,9 @@ stage_openstack() {
     log "openstack: prechecks, deploy, post-deploy"
     config
     # Upstream quay.io images are flagged as test images; fine for a lab, production builds its own.
-    kolla-ansible prechecks -i "$INV" --use-test-images
-    kolla-ansible deploy -i "$INV"
-    kolla-ansible post-deploy -i "$INV"
+    kolla prechecks -i "$INV" --use-test-images
+    kolla deploy -i "$INV"
+    kolla post-deploy -i "$INV"
     mkdir -p ~/.config/openstack
     sudo install -o "$USER" -m 600 /etc/kolla/clouds.yaml ~/.config/openstack/clouds.yaml
 }
