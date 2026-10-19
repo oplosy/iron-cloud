@@ -24,3 +24,17 @@ nova_compute_virt_type: "kvm"
 glance_backend_ceph: "yes"
 cinder_backend_ceph: "yes"
 nova_backend_ceph: "yes"
+
+# Department DNS. bind9 answers department zones and forwards everything else (recursion
+# is limited to BIND's default "localnets", which covers the provider network).
+enable_designate: "yes"
+designate_ns_record: ["ns1.ironcloud.lab"]
+neutron_dns_domain: "ironcloud.lab."
+designate_recursion: "yes"
+designate_forwarders_addresses: "1.1.1.1; 8.8.8.8"
+designate_api_workers: "1"
+designate_central_workers: "1"
+designate_worker_workers: "1"
+designate_producer_workers: "1"
+designate_mdns_workers: "1"
+designate_backend_bind9_workers: "1"

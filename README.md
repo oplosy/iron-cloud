@@ -41,3 +41,11 @@ powershell.exe -File lab/hyperv/prepare-images.ps1   # base disk + cloud-init se
 bash platform/up.sh                                   # deps, prep, bootstrap, ceph, openstack (~30 min)
 bash platform/up.sh smoke-test.sh                     # CirrOS VM on a Ceph volume with a floating IP
 ```
+
+Departments (self-service):
+
+```bash
+bash platform/up.sh departments.sh plan                # preview changes for departments/*.yaml
+bash platform/up.sh departments.sh                     # apply; a removed YAML tears that department down
+bash platform/up.sh isolation-test.sh                  # pass/fail matrix from inside department VMs
+```

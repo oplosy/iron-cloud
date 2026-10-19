@@ -19,17 +19,28 @@ Kolla-Ansible multinode (`ctl1` control + network, `cmp1`/`cmp2` compute) and Ce
 - [ ] The whole platform rebuilds from scratch with documented commands only (recreate VMs → deploy). Every stage has run, but not yet as one clean run on fresh VMs.
 - [x] `ctl1` RAM is measured after deploy and lowered to measured use + 1 GB (7.2 GB used, OSD growth to 1 GB → 9 GB)
 
-## Phase 2 — Self-service and network isolation
+## Phase 2 — Self-service and network isolation (done)
 
-A department asks for an environment by adding `departments/<name>.yaml` (quota, network CIDR, VMs). OpenTofu with the OpenStack provider applies it.
+A department asks for an environment by adding `departments/<name>.yaml` (quota, network CIDR, VMs). [`platform/departments.sh`](../platform/departments.sh) applies each file as its own OpenTofu workspace ([`platform/tofu`](../platform/tofu)).
 
-- [ ] One apply creates the project, users/roles, quota, network, subnet, router, security groups, VMs and DNS records (Designate)
-- [ ] A request over quota fails before anything is created
-- [ ] Deleting the YAML and applying removes everything the department had
-- [ ] Shared services (DNS resolver, monitoring) are reachable from every department
-- [ ] Monitoring can scrape department VMs; departments cannot reach the monitoring host's other ports
-- [ ] Department A cannot reach department B: ping and TCP to B's private and floating IPs are blocked
-- [ ] An isolation test script runs from inside tenant VMs and prints a pass/fail matrix (source × target × port)
+- [x] One apply creates the project, users/roles, quota, network, subnet, router, security groups, VMs and DNS records (Designate)
+- [x] A request over quota fails before anything is created (plan-time preconditions; tested with 2 VMs on a 1-instance quota)
+- [x] Deleting the YAML and applying removes everything the department had (servers, volumes, ports, network, router, floating IPs, security groups, zone, user, project)
+- [x] Shared DNS (`10.20.1.10`, ctl1's `svc0`) resolves department names and the internet for every department
+- [x] The platform address reaches department VMs (ICMP, SSH); departments reach the platform address only on DNS and ICMP
+- [x] Department A cannot reach department B: ping and TCP to B's private and floating IPs are blocked
+- [x] [`platform/isolation-test.sh`](../platform/isolation-test.sh) runs from inside tenant VMs and prints a pass/fail matrix (40 checks, all pass)
+
+How isolation works:
+
+| Path | Result | Enforced by |
+|---|---|---|
+| Same department, VM → VM | open | Security group rule: remote group = itself |
+| Department A → B private IP | blocked | No route: each department has its own router; private ranges are not routed on the provider network |
+| Department A → B floating IP | blocked | B's security group admits only its own group and `10.20.1.10`; A arrives as A's router address |
+| Department → `10.20.1.10` DNS/ICMP | open | nftables on ctl1 `svc0` |
+| Department → `10.20.1.10` anything else | blocked | nftables on ctl1 `svc0` |
+| Platform `10.20.1.10` → VM ICMP/SSH | open | Security group rule for `10.20.1.10/32` |
 
 ## Phase 3 — Failure demo and operations
 
@@ -39,7 +50,7 @@ Prerequisite: the user running the scripts can control Hyper-V VMs (Hyper-V Admi
 - [ ] `cmp1` failure report shows: when `nova-compute` was marked down, Ceph `HEALTH_WARN` with degraded PGs while still writable, `nova evacuate` duration, VM back on `cmp2`, checksum match, PGs back to `active+clean` after `cmp1` returns
 - [ ] `ctl1` failure report shows: APIs down, running VMs still up, same-network traffic still flowing, routed traffic stopped, recovery time after `ctl1` returns
 - [ ] Reports are written to `reports/` as Markdown
-- [ ] Prometheus + Grafana dashboards for nodes, Ceph and OpenStack services
+- [ ] Prometheus + Grafana dashboards for nodes, Ceph and OpenStack services, scraping department VMs from `10.20.1.10`
 - [ ] Runbooks: compute node failure, controller failure, Ceph OSD down, add a department, remove a department, rebuild the lab
 
 ## Out of scope

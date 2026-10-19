@@ -14,7 +14,12 @@ VM=smoke-vm
 if [ "${1:-}" = delete ]; then
     fip=$(os floating ip list --tags smoke -f value -c ID)
     [ -z "$fip" ] || os floating ip delete $fip
-    ! exists server "$VM" || os server delete --wait "$VM"
+    if exists server "$VM"; then
+        # Boot volumes made by "server create --boot-from-volume" outlive the server.
+        vols=$(os server show "$VM" -f json -c volumes_attached | python3 -c 'import json,sys; print(" ".join(v["id"] for v in json.load(sys.stdin)["volumes_attached"]))')
+        os server delete --wait "$VM"
+        [ -z "$vols" ] || os volume delete $vols
+    fi
     exit 0
 fi
 

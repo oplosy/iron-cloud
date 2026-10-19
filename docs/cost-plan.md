@@ -19,7 +19,7 @@ Three nodes are kept because Ceph monitor quorum and the "lose one node" demo ne
 
 | VM | Roles | vCPU | RAM | Disks (dynamic VHDX) |
 |---|---|---|---|---|
-| `ctl1` | Kolla control plane (APIs, MariaDB, RabbitMQ, Neutron L3/DHCP), Ceph mon/mgr, 1 OSD | 4 | 9 GB | 40 GB OS + 15 GB OSD |
+| `ctl1` | Kolla control plane (APIs, MariaDB, RabbitMQ, Neutron L3/DHCP, Designate + bind9), Ceph mon/mgr, 1 OSD | 4 | 9 GB | 40 GB OS + 15 GB OSD |
 | `cmp1` | Nova compute, Ceph mon + standby mgr, 1 OSD | 4 | 4 GB | 25 GB OS + 15 GB OSD |
 | `cmp2` | Nova compute, Ceph mon, 1 OSD | 4 | 4 GB | 25 GB OS + 15 GB OSD |
 | **Total** | | 12 | **17 GB** | 135 GB max, ~80 GB actual |
@@ -43,7 +43,7 @@ Picked from the [OpenStack project navigator](https://www.openstack.org/software
 | 1 | Neutron | Isolated tenant networks, routers, security groups |
 | 1 | Cinder (Ceph RBD) | Volumes on Ceph |
 | 1 | Horizon | Web UI for the demo |
-| 2 | Designate | DNS records for department VMs |
+| 2 | Designate | DNS records for department VMs (done) |
 | 3 | Prometheus + Grafana (Kolla) | Monitoring |
 
 Out of scope (RAM cost, not needed for the demo): Swift, Heat, Octavia, Magnum, Ironic, Masakari, Ceilometer/Gnocchi/Aodh, Barbican, Trove, Manila.
