@@ -13,18 +13,18 @@
 
 Hyper-V owns VT-x, which is why Windows reports firmware virtualization as off. Nested VMs need static memory and `Set-VMProcessor -ExposeVirtualizationExtensions $true`.
 
-## Lab: 3 nested nodes in 18 GB
+## Lab: 3 nested nodes in 17 GB
 
 Three nodes are kept because Ceph monitor quorum and the "lose one node" demo need them. Only the control plane is not HA: there is not enough RAM for 3 controllers.
 
 | VM | Roles | vCPU | RAM | Disks (dynamic VHDX) |
 |---|---|---|---|---|
-| `ctl1` | Kolla control plane (APIs, MariaDB, RabbitMQ, Neutron L3/DHCP), Ceph mon/mgr, 1 OSD | 4 | 10 GB | 40 GB OS + 15 GB OSD |
+| `ctl1` | Kolla control plane (APIs, MariaDB, RabbitMQ, Neutron L3/DHCP), Ceph mon/mgr, 1 OSD | 4 | 9 GB | 40 GB OS + 15 GB OSD |
 | `cmp1` | Nova compute, Ceph mon + standby mgr, 1 OSD | 4 | 4 GB | 25 GB OS + 15 GB OSD |
 | `cmp2` | Nova compute, Ceph mon, 1 OSD | 4 | 4 GB | 25 GB OS + 15 GB OSD |
-| **Total** | | 12 | **18 GB** | 135 GB max, ~80 GB actual |
+| **Total** | | 12 | **17 GB** | 135 GB max, ~80 GB actual |
 
-Windows keeps ~14 GB RAM; close heavy apps before starting the lab. Every node also has a 2 GB swap file as an OOM safety net. Ubuntu Server 24.04 LTS in every VM.
+Windows keeps ~15 GB RAM; close heavy apps before starting the lab. Every node also has a 2 GB swap file as an OOM safety net. Ubuntu Server 24.04 LTS in every VM.
 
 Tuning that makes it fit:
 - Ceph: `osd_memory_target = 1 GiB`, pool `size 3 / min_size 2` (one node can fail without losing writes).

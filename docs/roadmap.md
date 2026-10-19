@@ -2,22 +2,22 @@
 
 Each phase is done when every check under it passes and can be re-run from the repo. Lab sizing and the zero-budget decision are in [cost-plan.md](cost-plan.md).
 
-## Phase 0 — Lab ✅
+## Phase 0 — Lab (done)
 
 - [x] 3 nested Hyper-V VMs (`ctl1`, `cmp1`, `cmp2`) created from [`lab/hyperv`](../lab/hyperv)
 - [x] cloud-init done on all nodes; `/dev/kvm` present (nested virtualization works)
 - [x] Nodes reach each other by name and reach the internet through host NAT
 - [x] Each node has a separate raw disk for a Ceph OSD
 
-## Phase 1 — Platform
+## Phase 1 — Platform (4/5)
 
 Kolla-Ansible multinode (`ctl1` control + network, `cmp1`/`cmp2` compute) and Ceph (cephadm, one OSD per node).
 
-- [ ] `openstack compute service list` shows `nova-compute` up on `cmp1` and `cmp2`
-- [ ] `ceph -s` is `HEALTH_OK` with 3 OSDs up/in; RBD pools use `size 3 / min_size 2`
-- [ ] A CirrOS VM boots from a Ceph-backed volume, gets a floating IP and answers ping from the host
-- [ ] The whole platform rebuilds from scratch with documented commands only (recreate VMs → deploy)
-- [ ] `ctl1` RAM is measured after deploy and lowered to measured use + 1 GB
+- [x] `openstack compute service list` shows `nova-compute` up on `cmp1` and `cmp2`
+- [x] `ceph -s` is `HEALTH_OK` with 3 OSDs up/in; RBD pools use `size 3 / min_size 2`
+- [x] A CirrOS VM boots from a Ceph-backed volume, gets a floating IP and answers ping from the host ([`platform/smoke-test.sh`](../platform/smoke-test.sh))
+- [ ] The whole platform rebuilds from scratch with documented commands only (recreate VMs → deploy). Every stage has run, but not yet as one clean run on fresh VMs.
+- [x] `ctl1` RAM is measured after deploy and lowered to measured use + 1 GB (7.2 GB used, OSD growth to 1 GB → 9 GB)
 
 ## Phase 2 — Self-service and network isolation
 
