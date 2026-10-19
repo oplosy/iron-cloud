@@ -37,8 +37,7 @@ Build it (Windows host, Git Bash unless noted):
 
 ```bash
 powershell.exe -File lab/hyperv/prepare-images.ps1   # base disk + cloud-init seeds, no admin
-# then, in an elevated Windows PowerShell: lab\hyperv
-ew-lab.ps1
+# then, in an elevated Windows PowerShell: lab/hyperv/new-lab.ps1
 bash platform/up.sh                                   # deps, prep, bootstrap, ceph, openstack (~30 min)
 bash platform/up.sh smoke-test.sh                     # CirrOS VM on a Ceph volume with a floating IP
 ```
