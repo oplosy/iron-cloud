@@ -13,23 +13,23 @@
 
 Hyper-V owns VT-x, which is why Windows reports firmware virtualization as off. Nested VMs need static memory and `Set-VMProcessor -ExposeVirtualizationExtensions $true`.
 
-## Lab: 3 nested nodes in 22 GB
+## Lab: 3 nested nodes in 20 GB
 
 Three nodes are kept because Ceph monitor quorum and the "lose one node" demo need them. Only the control plane is not HA: there is not enough RAM for 3 controllers.
 
 | VM | Roles | vCPU | RAM | Disks (dynamic VHDX) |
 |---|---|---|---|---|
 | `ctl1` | Kolla control plane (APIs, MariaDB, RabbitMQ, Neutron L3/DHCP), Ceph mon/mgr, 1 OSD | 4 | 10 GB | 40 GB OS + 15 GB OSD |
-| `cmp1` | Nova compute, Ceph mon, 1 OSD | 4 | 6 GB | 25 GB OS + 15 GB OSD |
-| `cmp2` | Nova compute, Ceph mon, 1 OSD | 4 | 6 GB | 25 GB OS + 15 GB OSD |
-| **Total** | | 12 | **22 GB** | 135 GB max, ~80 GB actual |
+| `cmp1` | Nova compute, Ceph mon, 1 OSD | 4 | 5 GB | 25 GB OS + 15 GB OSD |
+| `cmp2` | Nova compute, Ceph mon, 1 OSD | 4 | 5 GB | 25 GB OS + 15 GB OSD |
+| **Total** | | 12 | **20 GB** | 135 GB max, ~80 GB actual |
 
-Windows keeps ~10 GB RAM. Ubuntu Server 24.04 LTS in every VM.
+Windows keeps ~12 GB RAM; close heavy apps before starting the lab. Ubuntu Server 24.04 LTS in every VM.
 
 Tuning that makes it fit:
 - Ceph: `osd_memory_target = 1 GiB`, pool `size 3 / min_size 2` (one node can fail without losing writes).
 - Tenant VMs: CirrOS image, 128–256 MB flavor. Two departments × 2 VMs ≈ 1 GB.
-- Network: two vNICs per VM. One is management on a Hyper-V internal switch with NAT (`10.0.0.0/24`), also carrying VXLAN tenant traffic. The other has no IP and is the Neutron external/provider bridge.
+- Network: two vNICs per VM. One is management on a Hyper-V internal switch with NAT (`10.20.0.0/24`), also carrying VXLAN tenant traffic. The other has no IP and is the Neutron external/provider bridge (`10.20.1.0/24`, host side NATed too). Scripts: [`lab/hyperv`](../lab/hyperv).
 
 ## OpenStack services
 
