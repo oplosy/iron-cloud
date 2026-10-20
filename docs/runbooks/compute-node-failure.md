@@ -4,7 +4,7 @@
 
 **What keeps working:** Ceph stays writable (pools are `size 3 / min_size 2`, 2 of 3 mons in quorum). VMs on the other compute node are not affected.
 
-**What happens by itself:** `ironcloud-evacuator` on ctl1 ([`platform/evacuator.sh`](../../platform/evacuator.sh)) evacuates the host's VMs once three signals agree for two checks in a row: Nova marks `nova-compute` down, the node does not answer ping, and Ceph has marked all its OSDs down. It disables the host in Nova, restarts the VMs that were running, and re-enables the host when `nova-compute` is up again. Measured: Ceph marks the OSD down after ~28 s, Nova after ~60 s, the evacuator acts at ~107 s, the VM answers on the other host at ~139 s ([report](../../reports/20261020-1650-cmp1-failure.md)).
+**What happens by itself:** `ironcloud-evacuator` on ctl1 ([`platform/evacuator.sh`](../../platform/evacuator.sh)) evacuates the host's VMs once three signals agree for two checks in a row: Nova marks `nova-compute` down, the node does not answer ping, and Ceph has marked all its OSDs down. It disables the host in Nova, restarts the VMs that were running, and re-enables the host when `nova-compute` is up again. It only acts on a node it has seen up since it started, so a node that is still booting while the lab starts is left alone (it logs "not seen up since this service started"). Measured: Ceph marks the OSD down after ~28 s, Nova after ~60 s, the evacuator acts at ~107 s, the VM answers on the other host at ~139 s ([report](../../reports/20261020-1650-cmp1-failure.md)).
 
 Watch it, or check what it did:
 

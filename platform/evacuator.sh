@@ -5,6 +5,8 @@
 #
 # "Really down" needs three independent signals for $GRACE checks in a row: Nova marks
 # nova-compute down, the node does not answer ping, and Ceph has marked all its OSDs down.
+# A node is only evacuated after this service has seen it up once: while the lab starts, a
+# node that has not booted yet looks exactly like a dead one.
 # Evacuating a VM whose old host still runs would give two writers on one volume; the RBD
 # exclusive lock is the second line of defence (a dead lock holder is blocklisted when the
 # new host breaks its lock).
@@ -25,8 +27,8 @@ all_osds_down() {
     down=$(sudo ceph osd tree down 2>/dev/null) || return 1
     for id in $ids; do grep -qw "osd.$id" <<<"$down" || return 1; done
 }
-# should_evacuate <nova state> <pings 0|1> <osds down 0|1> <other computes up>
-should_evacuate() { [ "$1" = down ] && [ "$2" = 0 ] && [ "$3" = 1 ] && [ "$4" -gt 0 ]; }
+# should_evacuate <nova state> <pings 0|1> <osds down 0|1> <other computes up> <seen up 0|1>
+should_evacuate() { [ "$1" = down ] && [ "$2" = 0 ] && [ "$3" = 1 ] && [ "$4" -gt 0 ] && [ "$5" = 1 ]; }
 # rebuilt_elsewhere <server> <old host>: on another host and settled (no rebuild in progress).
 rebuilt_elsewhere() {
     local host status
@@ -60,19 +62,17 @@ evacuate_host() {
     done
 }
 
-# Sourced by tests/run.sh: define the functions only.
-[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
-
-declare -A strikes=()
-log "watching ${!IP[*]} every ${INTERVAL}s, acting after $GRACE checks"
-while sleep "$INTERVAL"; do
+declare -A strikes=() seen=() told=()
+# tick: one pass over the nova-compute services.
+tick() {
+    local services up h status state reason p o
     # "<host> <status> <state> <disabled reason>"; empty while the APIs on ctl1 are down.
-    services=$(os compute service list --service nova-compute --long -f value -c Host -c Status -c State -c "Disabled Reason" 2>/dev/null) || continue
+    services=$(os compute service list --service nova-compute --long -f value -c Host -c Status -c State -c "Disabled Reason" 2>/dev/null) || return 0
     up=$(awk '$3 == "up"' <<<"$services" | wc -l)
     while read -r h status state reason; do
         [ -n "${IP[$h]:-}" ] || continue
         if [ "$state" = up ]; then
-            strikes[$h]=0
+            strikes[$h]=0 seen[$h]=1
             if [ "$status" = disabled ] && [ "$reason" = "$REASON" ]; then
                 os compute service set --enable "$h" nova-compute && log "$h: back up, re-enabled"
             fi
@@ -81,7 +81,11 @@ while sleep "$INTERVAL"; do
         p=0 o=0
         pings "${IP[$h]}" && p=1
         all_osds_down "$h" && o=1
-        if should_evacuate "$state" $p $o "$up"; then
+        if [ -z "${seen[$h]:-}" ] && [ -z "${told[$h]:-}" ] && should_evacuate "$state" $p $o "$up" 1; then
+            log "$h: down, but not seen up since this service started; waiting for it to boot"
+            told[$h]=1
+        fi
+        if should_evacuate "$state" $p $o "$up" "${seen[$h]:-0}"; then
             strikes[$h]=$((${strikes[$h]:-0} + 1))
         else
             strikes[$h]=0
@@ -90,4 +94,10 @@ while sleep "$INTERVAL"; do
         log "$h: down (nova down, no ping, OSDs down) for $GRACE checks; evacuating"
         evacuate_host "$h"
     done <<<"$services"
-done
+}
+
+# Sourced by tests/run.sh: define the functions only.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
+
+log "watching ${!IP[*]} every ${INTERVAL}s, acting after $GRACE checks"
+while sleep "$INTERVAL"; do tick; done

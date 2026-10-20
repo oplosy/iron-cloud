@@ -36,11 +36,34 @@ check "snapshot: time once T0 is set" "### during (t+0s)" "${SNAPSHOTS[5]}"
 # shellcheck source=platform/evacuator.sh
 source "$ROOT/platform/evacuator.sh"
 decide() { if should_evacuate "$@"; then echo evacuate; else echo wait; fi; }
-check "evacuate: all signals agree" evacuate "$(decide down 0 1 1)"
-check "evacuate: nova up" wait "$(decide up 0 1 1)"
-check "evacuate: node still answers ping" wait "$(decide down 1 1 1)"
-check "evacuate: OSDs still up" wait "$(decide down 0 0 1)"
-check "evacuate: no other compute up" wait "$(decide down 0 1 0)"
+check "evacuate: all signals agree" evacuate "$(decide down 0 1 1 1)"
+check "evacuate: nova up" wait "$(decide up 0 1 1 1)"
+check "evacuate: node still answers ping" wait "$(decide down 1 1 1 1)"
+check "evacuate: OSDs still up" wait "$(decide down 0 0 1 1)"
+check "evacuate: no other compute up" wait "$(decide down 0 1 0 1)"
+check "evacuate: never seen up (lab still starting)" wait "$(decide down 0 1 1 0)"
+
+# tick() with OpenStack, ping and Ceph stubbed: cmp1 is down, cmp2 up.
+SERVICES="cmp1 enabled down None
+cmp2 enabled up None"
+EVACUATED=() LOGS=()
+os() { [ "$1 $2 $3" = "compute service list" ] && echo "$SERVICES"; return 0; }
+pings() { [ "$1" = "${IP[cmp2]}" ]; }
+all_osds_down() { [ "$1" = cmp1 ]; }
+evacuate_host() { EVACUATED+=("$1"); }
+log() { LOGS+=("$*"); }
+tick; tick; tick
+check "tick: node never seen up is not evacuated" 0 "${#EVACUATED[@]}"
+check "tick: says so once" "cmp1: down, but not seen up since this service started; waiting for it to boot" "${LOGS[*]}"
+SERVICES="cmp1 enabled up None
+cmp2 enabled up None"
+tick
+SERVICES="cmp1 enabled down None
+cmp2 enabled up None"
+tick
+check "tick: no action after one down check (GRACE=2)" 0 "${#EVACUATED[@]}"
+tick; tick
+check "tick: evacuated once after GRACE checks" "cmp1" "${EVACUATED[*]}"
 
 # --- gitops.sh ---
 # shellcheck source=platform/gitops.sh
