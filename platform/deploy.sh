@@ -124,6 +124,15 @@ stage_ceph() {
     done
     sudo ceph orch host add cmp1 10.20.0.12
     sudo ceph orch host add cmp2 10.20.0.13
+    # A node that boots while the others are off cannot reach a monitor; cephadm's units give up
+    # after 5 starts (each waits 300 s), so its OSD and mgr stayed down after the others returned.
+    # Keep retrying instead.
+    fsid=$(sudo ceph fsid)
+    for n in "${NODES[@]}"; do
+        ssh "$n" "sudo mkdir -p /etc/systemd/system/ceph-$fsid@.service.d \
+            && printf '[Unit]\nStartLimitIntervalSec=0\n' | sudo tee /etc/systemd/system/ceph-$fsid@.service.d/ironcloud-retry.conf >/dev/null \
+            && sudo systemctl daemon-reload"
+    done
     sudo ceph orch apply mon --placement="ctl1,cmp1,cmp2"
     sudo ceph orch apply mgr --placement="ctl1,cmp1"
     sudo ceph config set osd osd_memory_target_autotune false

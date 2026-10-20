@@ -33,6 +33,13 @@ If it does not stay up, read its log on that host:
 sudo cephadm logs --name osd.<N> | tail -50
 ```
 
+**Daemon in `error` state after the lab was started one node at a time** (`ceph health detail`: "daemon osd.N on cmpX is in error state"): the node booted while no monitor was reachable. Since the `ironcloud-retry.conf` drop-in (deploy.sh, stage `ceph`) the units keep retrying; on a node without it, systemd gave up after 5 starts:
+
+```bash
+F=$(sudo ceph fsid)
+sudo systemctl reset-failed ceph-$F@osd.<N> && sudo systemctl start ceph-$F@osd.<N>    # same for mgr.<name>
+```
+
 ## 3. Watch recovery
 
 ```bash
