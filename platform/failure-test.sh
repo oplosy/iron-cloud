@@ -169,20 +169,27 @@ EOF
     on $ceph "sudo rados -p volumes rm probe-ctl1-down; rm -f /tmp/probe-*" >/dev/null 2>&1
 
     # Read the in-VM logs: ping prints one line per reply with seq=N; io.log has one epoch per second.
+    # Each line is "<probe> <end> <values...>", end being what a live probe would show now: all probes
+    # started together and busybox ping counts from seq=0, so ping's end is seconds since io.log's first epoch.
     local logs
     logs=$(vm "$a_fip" <<'EOF'
+end=$(date +%s); start=$(head -1 io.log)
 killall ping; kill $(cat io.pid) 2>/dev/null
-for f in ew inet; do echo "$f $(grep -o 'seq=[0-9]*' $f.log | cut -d= -f2 | tr '\n' ' ')"; done
-echo "io $(tr '\n' ' ' < io.log)"
+for f in ew inet; do echo "$f $((end - start)) $(grep -o 'seq=[0-9]*' $f.log | cut -d= -f2 | tr '\n' ' ')"; done
+echo "io $end $(tr '\n' ' ' < io.log)"
 EOF
 )
     [ -n "$logs" ] || finding "PROBE LOGS COULD NOT BE READ from $a_name; the in-VM measurements below are empty."
-    gap_report() { # <label> <tag numbers...>: sample count and longest gap between consecutive values
-        awk -v label="$1" '{ if (NF < 3) { print label ": no samples"; exit }; max = 0; for (i = 3; i <= NF; i++) { d = $i - $(i-1); if (d > max) max = d }; print label ": " NF-1 " samples, longest gap " max }' <<<"$2"
+    gap_report() { # <label> <unit> <line>: sample count and longest gap, including the one from the last sample to end
+        # A tail of up to 2 is start/read timing jitter, not an outage.
+        awk -v label="$1" -v unit="$2" '{ if (NF < 3) { print label ": no samples"; exit }; max = 0; for (i = 4; i <= NF; i++) { d = $i - $(i-1); if (d > max) max = d }; tail = $2 - $NF; if (tail > 2 && tail > max) max = tail
+            out = label ": " NF-2 " samples, longest gap " max unit
+            if (tail > 2) out = out "; no samples in the last " tail " s before the logs were read (had not resumed by then)"
+            print out }' <<<"$3"
     }
-    finding "East-west ($a_name -> $b_name, same network): $(gap_report "ping seq" "$(grep '^ew ' <<<"$logs")") (a gap of 1 means no loss)."
-    finding "Routed traffic ($a_name -> 1.1.1.1 via the router on ctl1): $(gap_report "ping seq" "$(grep '^inet ' <<<"$logs")") seconds."
-    finding "Disk writes inside $a_name (Ceph-backed volume): $(gap_report "io writes" "$(grep '^io ' <<<"$logs")") seconds."
+    finding "East-west ($a_name -> $b_name, same network): $(gap_report "ping seq" "" "$(grep '^ew ' <<<"$logs")") (a gap of 1 means no loss)."
+    finding "Routed traffic ($a_name -> 1.1.1.1 via the router on ctl1): $(gap_report "ping seq" " seconds" "$(grep '^inet ' <<<"$logs")")."
+    finding "Disk writes inside $a_name (Ceph-backed volume): $(gap_report "io writes" " seconds" "$(grep '^io ' <<<"$logs")")."
 }
 
 echo "Failure test: $NODE"
