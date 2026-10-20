@@ -1,7 +1,7 @@
 description: Finance department (ledger service)
 cidr: 192.168.10.0/24
 quota:
-  instances: 2
+  instances: 0
   cores: 2
   ram_mb: 512
   volumes: 2
