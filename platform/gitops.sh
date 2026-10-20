@@ -20,6 +20,15 @@ has_status() { [ -n "$(gh api "repos/{owner}/{repo}/commits/$1/statuses" --jq ".
 strip_ansi() { sed 's/\x1b\[[0-9;]*m//g'; }
 # summary: one line per department plus the verdict lines.
 summary() { grep -E '^==>|^Plan:|^Apply complete|No changes\.|^Error:' || true; }
+# short: "engineering: no changes; finance: +0 ~1 -0" for the 140-character status description.
+short() {
+    awk '/^==> /                { d = $NF }
+         /No changes\./         { r = r sep d ": no changes"; sep = "; " }
+         /^Plan:/               { r = r sep d ": +" $2 " ~" $5 " -" $8; sep = "; " }
+         /^Apply complete/      { r = r sep d ": +" $4 " ~" $6 " -" $8; sep = "; " }
+         /^Error:/ && !e[d]++   { r = r sep d ": error"; sep = "; " }
+         END                    { print r }'
+}
 
 # run_departments <mode> <platform ref> <departments ref>: runs departments.sh on the lab from a
 # tree assembled from the two refs. Prints the output; exit code is departments.sh's.
@@ -56,7 +65,7 @@ plan_prs() {
         if [ $rc -eq 0 ]; then result=success; else result=failure; fi
         gh pr comment "$n" --body "$(comment_body "Lab plan for ${sha:0:7}" "$result" "$out" "ironcloud-plan $sha")
 Planned with platform code from main (${main:0:7}) and this PR's \`departments/\`." >/dev/null
-        status "$sha" lab/plan "$result" "$(summary <<<"$out" | grep -E '^Plan:|^Error:|No changes' | head -1)"
+        status "$sha" lab/plan "$result" "$(short <<<"$out")"
         log "PR #$n: $result"
     done < <(gh pr list --state open --json number,headRefOid,files,isCrossRepository \
         --jq '.[] | select(.isCrossRepository | not) | select(any(.files[]; .path | startswith("departments/"))) | "\(.number) \(.headRefOid)"')
@@ -69,7 +78,7 @@ apply_main() {
     status "$main" lab/apply pending "Applying on the lab"
     out=$(run_departments apply "$main" "$main"); rc=$?
     if [ $rc -eq 0 ]; then result=success; else result=failure; fi
-    status "$main" lab/apply "$result" "$(summary <<<"$out" | grep -E '^Apply complete|^Error:|No changes' | head -1)"
+    status "$main" lab/apply "$result" "$(short <<<"$out")"
     pr=$(gh api "repos/{owner}/{repo}/commits/$main/pulls" --jq '.[0].number // empty')
     [ -z "$pr" ] || gh pr comment "$pr" --body "$(comment_body "Applied ${main:0:7} to the lab" "$result" "$out" "ironcloud-apply $main")" >/dev/null
     log "main: $result"
@@ -83,6 +92,9 @@ once() {
     plan_prs "$main"
     apply_main "$main"
 }
+
+# Sourced by tests/run.sh: define the functions only.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
 
 case "${1:-once}" in
     once) once ;;

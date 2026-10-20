@@ -42,5 +42,21 @@ check "evacuate: node still answers ping" wait "$(decide down 1 1 1)"
 check "evacuate: OSDs still up" wait "$(decide down 0 0 1)"
 check "evacuate: no other compute up" wait "$(decide down 0 1 0)"
 
+# --- gitops.sh ---
+# shellcheck source=platform/gitops.sh
+source "$ROOT/platform/gitops.sh"
+plan_out='==> plan: engineering
+No changes. Your infrastructure matches the configuration.
+==> plan: finance
+Plan: 0 to add, 1 to change, 0 to destroy.'
+check "gitops: plan summary" "engineering: no changes; finance: +0 ~1 -0" "$(short <<<"$plan_out")"
+apply_out='==> apply: finance
+Apply complete! Resources: 2 added, 0 changed, 1 destroyed.
+==> apply: research
+Error: Invalid index
+Error: Another one'
+check "gitops: apply summary, one error per department" "finance: +2 ~0 -1; research: error" "$(short <<<"$apply_out")"
+check "gitops: colours stripped" "Plan: 1 to add" "$(printf '[1mPlan:[0m 1 to add' | strip_ansi)"
+
 echo "$((total - fails))/$total passed"
 [ "$fails" -eq 0 ]
