@@ -28,13 +28,15 @@ summary() {
          err && /^╵/ { print title ": " msg; err = 0 }'
 }
 # short: "engineering: no changes; finance: +0 ~1 -0" for the 140-character status description.
+# Apply prints a plan before "Apply complete", so the last result per department wins; an error sticks.
 short() {
-    awk '/^==> /                { d = $NF }
-         /No changes\./         { r = r sep d ": no changes"; sep = "; " }
-         /^Plan:/               { r = r sep d ": +" $2 " ~" $5 " -" $8; sep = "; " }
-         /^Apply complete/      { r = r sep d ": +" $4 " ~" $6 " -" $8; sep = "; " }
-         /^│ Error:/ && !e[d]++ { r = r sep d ": error"; sep = "; " }
-         END                    { print r }'
+    awk '/^==> /         { d = $NF; if (!(d in res)) order[++n] = d; res[d] = "" }
+         res[d] == "error" { next }
+         /No changes\./  { res[d] = "no changes" }
+         /^Plan:/        { res[d] = "+" $2 " ~" $5 " -" $8 }
+         /^Apply complete/ { res[d] = "+" $4 " ~" $6 " -" $8 }
+         /^│ Error:/     { res[d] = "error" }
+         END { for (i = 1; i <= n; i++) printf "%s%s: %s", (i > 1 ? "; " : ""), order[i], res[order[i]]; print "" }'
 }
 
 # run_departments <mode> <platform ref> <departments ref>: runs departments.sh on the lab from a

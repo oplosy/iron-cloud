@@ -4,28 +4,23 @@ Deletes everything the department has: servers and their boot volumes, ports, fl
 
 ## 1. Back up what the department wants to keep
 
-There is no automatic backup. Snapshot volumes first if needed:
+Export every VM's boot volume to the Windows host ([backup runbook](backup-restore.md)); Cinder snapshots would be deleted with the project:
 
 ```bash
-export OS_CLOUD=kolla-admin
-openstack volume list --project <name>
-openstack volume snapshot create --force --volume <volume-id> <name>-final
+bash platform/backup.sh backup <name>
 ```
-
-Snapshots belong to the project and are removed with it; copy them out (`openstack image create --volume ...`) if they must survive.
 
 ## 2. Remove the request and preview
 
 ```bash
-git rm departments/<name>.yaml
-bash platform/up.sh departments.sh plan     # "YAML removed, will be destroyed" with the full list
+git switch -c remove-<name> && git rm departments/<name>.yaml && git commit -m "Remove the <name> department"
+git push -u origin remove-<name> && gh pr create --fill
+bash platform/gitops.sh once                # PR comment: "YAML removed, will be destroyed" with the full list
 ```
 
 ## 3. Apply
 
-```bash
-bash platform/up.sh departments.sh
-```
+Merge the PR and run `bash platform/gitops.sh once` again (or leave `watch` running). Without the agent: `bash platform/up.sh departments.sh`.
 
 `departments.sh` destroys the workspace, deletes the leftover `default` security group by project ID and deletes the workspace.
 

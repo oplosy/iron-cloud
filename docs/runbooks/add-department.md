@@ -27,9 +27,24 @@ The plan fails, and nothing is created, if:
 - there are more VMs than floating IPs,
 - the CIDR is invalid or inside `10.20.0.0/16`.
 
-## 2. Preview, then apply
+CI ([`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)) checks these rules on every PR without the lab (`tofu test` with mocked OpenStack).
 
-From the Windows host:
+## 2. Open a PR, review the lab plan, merge
+
+```bash
+git switch -c add-<name> && git add departments/<name>.yaml && git commit -m "Add the <name> department"
+git push -u origin add-<name> && gh pr create --fill
+```
+
+The GitOps agent ([`platform/gitops.sh`](../../platform/gitops.sh)) runs on the Windows host, where the lab is reachable; GitHub never connects to the lab. Run it once, or leave it watching:
+
+```bash
+bash platform/gitops.sh once          # or: bash platform/gitops.sh watch 60
+```
+
+For the PR it posts the lab plan as a comment and sets the `lab/plan` commit status (e.g. `finance: +0 ~1 -0`, or `finance: error` with the precondition message). The plan uses main's platform code and only the PR's `departments/`, so a PR cannot run its own code on the lab. Merge when the plan is right; on the next run the agent applies main, sets `lab/apply` and comments the result on the merged PR ([example](https://github.com/oplosy/iron-cloud/pull/1)).
+
+Without the agent, from the Windows host:
 
 ```bash
 bash platform/up.sh departments.sh plan
@@ -52,4 +67,4 @@ cd ~/ironcloud/platform/tofu && TF_DATA_DIR=~/ironcloud-state/.terraform tofu wo
 
 ## Changing a department
 
-Edit its YAML and apply again. Quota changes apply in place. Adding a VM adds a port, floating IP, server and DNS record.
+Edit its YAML in a PR, the same way. Quota changes apply in place. Adding a VM adds a port, floating IP, server and DNS record.

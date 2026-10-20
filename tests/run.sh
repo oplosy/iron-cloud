@@ -67,6 +67,12 @@ Apply complete! Resources: 2 added, 0 changed, 1 destroyed.
 ╵'
 check "gitops: apply summary, one error per department" "finance: +2 ~0 -1; research: error" "$(short <<<"$apply_out")"
 check "gitops: error message in the summary"     'Error: Resource precondition failed: Requested VMs need {"instances":1}, which does not fit the department quota.'     "$(summary <<<"$apply_out" | sed -n 4p)"
+check "gitops: apply mode keeps the last result" "engineering: +0 ~0 -0; finance: +0 ~1 -0" "$(short <<<'==> apply: engineering
+No changes. Your infrastructure matches the configuration.
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+==> apply: finance
+Plan: 0 to add, 1 to change, 0 to destroy.
+Apply complete! Resources: 0 added, 1 changed, 0 destroyed.')"
 check "gitops: colours stripped" "Plan: 1 to add" "$(printf '[1mPlan:[0m 1 to add' | strip_ansi)"
 
 echo "$((total - fails))/$total passed"
