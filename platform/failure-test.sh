@@ -4,6 +4,8 @@
 # checks data integrity and writes a Markdown report to reports/.
 # Usage: platform/failure-test.sh cmp1|cmp2|ctl1
 set -uo pipefail
+# "cmd | snapshot" must append to SNAPSHOTS in this shell, not in a pipeline subshell.
+shopt -s lastpipe
 NODE=${1:-}
 [[ $NODE =~ ^(cmp1|cmp2|ctl1)$ ]] || { echo "Usage: $0 cmp1|cmp2|ctl1" >&2; exit 1; }
 KEY=~/.ssh/ironcloud_ed25519
