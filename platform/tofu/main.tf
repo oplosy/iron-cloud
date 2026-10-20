@@ -13,11 +13,14 @@ locals {
     disk_gb = try(vm.disk_gb, 1)
   } }
   zone = "${var.department}.${var.dns_domain}."
+  flavor_sizes = var.flavor_sizes != null ? var.flavor_sizes : {
+    for name, f in data.openstack_compute_flavor_v2.vm : name => { vcpus = f.vcpus, ram = f.ram }
+  }
 
   requested = {
     instances = length(local.vms)
-    cores     = sum(concat([0], [for vm in local.vms : data.openstack_compute_flavor_v2.vm[vm.flavor].vcpus]))
-    ram_mb    = sum(concat([0], [for vm in local.vms : data.openstack_compute_flavor_v2.vm[vm.flavor].ram]))
+    cores     = sum(concat([0], [for vm in local.vms : local.flavor_sizes[vm.flavor].vcpus]))
+    ram_mb    = sum(concat([0], [for vm in local.vms : local.flavor_sizes[vm.flavor].ram]))
     volumes   = length(local.vms)
     gigabytes = sum(concat([0], [for vm in local.vms : vm.disk_gb]))
   }

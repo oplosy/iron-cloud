@@ -1,0 +1,38 @@
+name: ci
+
+# Checks that need no lab. Plans and applies against the lab run from platform/gitops.sh.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck
+        run: shellcheck -x -S warning platform/*.sh tests/*.sh
+
+      - name: unit tests
+        run: bash tests/run.sh
+
+      - name: install OpenTofu (same version as departments.sh)
+        run: |
+          v=$(sed -n 's/^TOFU_VERSION=//p' platform/departments.sh)
+          base=https://github.com/opentofu/opentofu/releases/download/v$v
+          zip=tofu_${v}_linux_amd64.zip
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o "$zip" "$base/$zip"
+          curl -fsSL "$base/tofu_${v}_SHA256SUMS" | grep " $zip$" | sha256sum -c -
+          unzip -oq "$zip" tofu
+          sudo install -m 755 tofu /usr/local/bin/tofu
+
+      - name: tofu fmt, validate, test (mocked OpenStack)
+        working-directory: platform/tofu
+        run: |
+          tofu fmt -check -recursive -diff
+          tofu init -backend=false -input=false
+          tofu validate
+          tofu test

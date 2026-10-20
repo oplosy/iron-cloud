@@ -1,0 +1,5 @@
+# Quota above the platform limit per department (4 instances).
+description: Over platform limit
+cidr: 192.168.91.0/24
+quota: {instances: 8, cores: 4, ram_mb: 1024, volumes: 4, gigabytes: 8, floating_ips: 4}
+vms: []

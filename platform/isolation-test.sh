@@ -27,7 +27,7 @@ resolves_from() { in_vm "$1" "nslookup $2 $SHARED | grep -q '$3'"; }
 
 # CirrOS boots in under a minute; wait until every VM accepts SSH from the platform address.
 for row in "${VMS[@]}"; do
-    read -r _ name _ fip _ <<<"$row"
+    read -r _ _ _ fip _ <<<"$row"
     for _ in $(seq 30); do in_vm "$fip" true 2>/dev/null && break; sleep 5; done
 done
 
