@@ -32,5 +32,15 @@ T0=$(date +%s)
 echo x | snapshot "during"
 check "snapshot: time once T0 is set" "### during (t+0s)" "${SNAPSHOTS[5]}"
 
+# --- evacuator.sh ---
+# shellcheck source=platform/evacuator.sh
+source "$ROOT/platform/evacuator.sh"
+decide() { if should_evacuate "$@"; then echo evacuate; else echo wait; fi; }
+check "evacuate: all signals agree" evacuate "$(decide down 0 1 1)"
+check "evacuate: nova up" wait "$(decide up 0 1 1)"
+check "evacuate: node still answers ping" wait "$(decide down 1 1 1)"
+check "evacuate: OSDs still up" wait "$(decide down 0 0 1)"
+check "evacuate: no other compute up" wait "$(decide down 0 1 0)"
+
 echo "$((total - fails))/$total passed"
 [ "$fails" -eq 0 ]

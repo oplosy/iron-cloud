@@ -4,7 +4,17 @@
 
 **What keeps working:** Ceph stays writable (pools are `size 3 / min_size 2`, 2 of 3 mons in quorum). VMs on the other compute node are not affected.
 
-**What does not happen by itself:** Nova does not move VMs off a dead host (no Masakari). Measured on this lab: Ceph marks the OSD down after ~28 s, Nova marks `nova-compute` down after ~59 s ([report](../../reports/20261019-1650-cmp1-failure.md)).
+**What happens by itself:** `ironcloud-evacuator` on ctl1 ([`platform/evacuator.sh`](../../platform/evacuator.sh)) evacuates the host's VMs once three signals agree for two checks in a row: Nova marks `nova-compute` down, the node does not answer ping, and Ceph has marked all its OSDs down. It disables the host in Nova, restarts the VMs that were running, and re-enables the host when `nova-compute` is up again. Measured: Ceph marks the OSD down after ~28 s, Nova after ~60 s, the evacuator acts at ~107 s, the VM answers on the other host at ~139 s ([report](../../reports/20261020-1650-cmp1-failure.md)).
+
+Watch it, or check what it did:
+
+```bash
+sudo journalctl -u ironcloud-evacuator -t ironcloud-evacuator --since -1h
+```
+
+Its two lines of defence against evacuating a VM whose old host still runs: the three-signal check above, and the RBD exclusive lock on every volume (the new host breaks a dead holder's lock and Ceph blocklists it, so a host that comes back cannot write to the moved volume).
+
+The steps below are the manual path: when the evacuator is not running (`systemctl status ironcloud-evacuator`; reinstall with `platform/up.sh evacuator`), when it logged a failure, or when only one compute node is left.
 
 ## 1. Confirm the host is really down
 
