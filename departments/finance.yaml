@@ -1,4 +1,4 @@
-description: Finance department
+description: Finance department (ledger service)
 cidr: 192.168.10.0/24
 quota:
   instances: 2
