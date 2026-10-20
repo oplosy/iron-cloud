@@ -18,15 +18,22 @@ status() { gh api "repos/{owner}/{repo}/statuses/$1" -f state="$3" -f context="$
 has_status() { [ -n "$(gh api "repos/{owner}/{repo}/commits/$1/statuses" --jq ".[] | select(.context == \"$2\") | .state")" ]; }
 # strip_ansi: tofu prints colours; GitHub comments show them as junk.
 strip_ansi() { sed 's/\x1b\[[0-9;]*m//g'; }
-# summary: one line per department plus the verdict lines.
-summary() { grep -E '^==>|^Plan:|^Apply complete|No changes\.|^Error:' || true; }
+# summary: one line per department plus the verdict lines. A tofu error is a box of "│ " lines;
+# its message is the box's last paragraph.
+summary() {
+    awk '/^==> |^Plan:|^Apply complete|No changes\./ { print; next }
+         /^│ Error:/ { err = 1; title = $0; sub(/^│ /, "", title); msg = ""; next }
+         err && /^│ *$/ { msg = ""; next }
+         err && /^│ / { line = $0; sub(/^│ /, "", line); msg = msg (msg == "" ? "" : " ") line; next }
+         err && /^╵/ { print title ": " msg; err = 0 }'
+}
 # short: "engineering: no changes; finance: +0 ~1 -0" for the 140-character status description.
 short() {
     awk '/^==> /                { d = $NF }
          /No changes\./         { r = r sep d ": no changes"; sep = "; " }
          /^Plan:/               { r = r sep d ": +" $2 " ~" $5 " -" $8; sep = "; " }
          /^Apply complete/      { r = r sep d ": +" $4 " ~" $6 " -" $8; sep = "; " }
-         /^Error:/ && !e[d]++   { r = r sep d ": error"; sep = "; " }
+         /^│ Error:/ && !e[d]++ { r = r sep d ": error"; sep = "; " }
          END                    { print r }'
 }
 

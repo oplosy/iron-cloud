@@ -53,9 +53,20 @@ check "gitops: plan summary" "engineering: no changes; finance: +0 ~1 -0" "$(sho
 apply_out='==> apply: finance
 Apply complete! Resources: 2 added, 0 changed, 1 destroyed.
 ==> apply: research
-Error: Invalid index
-Error: Another one'
+╷
+│ Error: Resource precondition failed
+│ 
+│   on main.tf line 69, in resource "openstack_identity_project_v3" "dept":
+│ 
+│ Requested VMs need
+│ {"instances":1}, which
+│ does not fit the department quota.
+╵
+╷
+│ Error: Another one
+╵'
 check "gitops: apply summary, one error per department" "finance: +2 ~0 -1; research: error" "$(short <<<"$apply_out")"
+check "gitops: error message in the summary"     'Error: Resource precondition failed: Requested VMs need {"instances":1}, which does not fit the department quota.'     "$(summary <<<"$apply_out" | sed -n 4p)"
 check "gitops: colours stripped" "Plan: 1 to add" "$(printf '[1mPlan:[0m 1 to add' | strip_ansi)"
 
 echo "$((total - fails))/$total passed"
