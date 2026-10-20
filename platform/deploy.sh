@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs on ctl1. Deploys Ceph (cephadm) and OpenStack (Kolla-Ansible) on the 3 lab nodes.
-# Usage: deploy.sh [stage...]   stages: deps prep shared bootstrap ceph openstack (default: all, in order)
+# Usage: deploy.sh [stage...]   stages: deps prep shared bootstrap ceph openstack evacuator (default: all, in order)
 # Every stage is safe to re-run.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -175,8 +175,31 @@ stage_openstack() {
     sudo install -o "$USER" -m 600 /etc/kolla/clouds.yaml ~/.config/openstack/clouds.yaml
 }
 
+stage_evacuator() {
+    log "evacuator: moves VMs off a dead compute node (systemd, on ctl1)"
+    sudo install -m 755 "$HERE/evacuator.sh" /usr/local/sbin/ironcloud-evacuator
+    sudo tee /etc/systemd/system/ironcloud-evacuator.service >/dev/null <<EOF
+[Unit]
+Description=IronCloud evacuator: moves VMs off a dead compute node
+After=network-online.target docker.service
+
+[Service]
+User=$USER
+ExecStart=/usr/local/sbin/ironcloud-evacuator
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable -q ironcloud-evacuator
+    sudo systemctl restart ironcloud-evacuator
+    systemctl is-active ironcloud-evacuator
+}
+
 stages=("$@")
-[ ${#stages[@]} -gt 0 ] || stages=(deps prep shared bootstrap ceph openstack)
+[ ${#stages[@]} -gt 0 ] || stages=(deps prep shared bootstrap ceph openstack evacuator)
 for s in "${stages[@]}"; do
     declare -F "stage_$s" >/dev/null || { echo "Unknown stage: $s" >&2; exit 1; }
     "stage_$s"

@@ -73,6 +73,8 @@ rados_md5() { on "$1" "sudo timeout 60 rados -p volumes get $2 - | md5sum" | cut
 nova_state() { osc compute service list --service nova-compute --host "$1" -f value -c State; }
 all_up() { local out; out=$(osc compute service list -f value -c State) && [ -n "$out" ] && ! grep -qv '^up$' <<<"$out"; }
 nova_is() { [ "$(nova_state "$1")" = "$2" ]; }
+vm_on() { [ "$(osc server show "$1" -f value -c OS-EXT-SRV-ATTR:host)" = "$2" ]; }
+service_enabled() { [ "$(osc compute service list --service nova-compute --host "$1" -f value -c Status)" = enabled ]; }
 vm_state_on() { [ "$(osc server show "$1" -f value -c status)" = "$2" ] && [ "$(osc server show "$1" -f value -c OS-EXT-SRV-ATTR:host)" = "$3" ]; }
 vm_ssh() { echo true | vm "$1"; }
 agents_alive() { local out; out=$(osc network agent list -f value -c Alive) && [ -n "$out" ] && ! grep -qv True <<<"$out"; }
@@ -82,6 +84,7 @@ scenario_compute() {
     other=$([ "$NODE" = cmp1 ] && echo cmp2 || echo cmp1)
     read -r vm_id vm_name < <(osc server list --all-projects --host "$NODE" -f value -c ID -c Name | head -1)
     [ -n "${vm_id:-}" ] || { echo "No department VM runs on $NODE; nothing to evacuate." >&2; exit 1; }
+    on ctl1 systemctl is-active -q ironcloud-evacuator || { echo "ironcloud-evacuator is not running on ctl1 (platform/up.sh evacuator)." >&2; exit 1; }
     fip=$(fip_of "$vm_id")
     osd=$(osd_of $ceph "$NODE")
     echo "VM under test: $vm_name ($vm_id) on $NODE, floating $fip; osd.$osd on $NODE"
@@ -99,12 +102,8 @@ scenario_compute() {
     if [ -n "$obj_degraded" ]; then event "4 MB write to pool 'volumes' succeeded while degraded"; else event "write while degraded FAILED"; fi
     wait_for "Nova marks nova-compute on $NODE down" 300 nova_is "$NODE" down
 
-    event "evacuate $vm_name requested"
-    osc server evacuate "$vm_id" >/dev/null
-    # Compute API >= 2.95 leaves an evacuated server stopped so an operator can check it first.
-    wait_for "$vm_name rebuilt on $other from its Ceph volume, left SHUTOFF (API >= 2.95)" 300 vm_state_on "$vm_id" SHUTOFF "$other"
-    osc server start "$vm_id"
-    event "start $vm_name requested"
+    # ironcloud-evacuator on ctl1 evacuates and restarts the VM; the test only watches.
+    wait_for "$vm_name moved to $other by the evacuator" 300 vm_on "$vm_id" "$other"
     wait_for "$vm_name ACTIVE on $other" 300 vm_state_on "$vm_id" ACTIVE "$other"
     wait_for "$vm_name answers ping on $fip" 300 on ctl1 ping -c1 -W1 "$fip"
     wait_for "$vm_name accepts SSH" 300 vm_ssh "$fip"
@@ -119,15 +118,17 @@ scenario_compute() {
     wait_for "$NODE back on the network" 300 host_ping "${IP[$NODE]}"
     wait_for "osd.$osd back up" 300 not osd_down $ceph "$osd"
     wait_for "nova-compute on $NODE up" 300 nova_is "$NODE" up
+    wait_for "evacuator re-enabled nova-compute on $NODE" 120 service_enabled "$NODE"
     wait_for "Ceph HEALTH_OK, all PGs active+clean" 900 ceph_ok $ceph
     ceph_on $ceph -s | snapshot "Ceph after recovery"
+    on ctl1 "sudo journalctl -u ironcloud-evacuator -t ironcloud-evacuator --since @$T0 --no-pager -o short-iso" | snapshot "Evacuator log"
 
     local a b
     a=$(rados_md5 $ceph probe-before) b=$(rados_md5 $ceph probe-degraded)
     [ "$a" = "$obj_before" ] && [ "$b" = "$obj_degraded" ] && finding "RADOS objects written before and during the failure read back with matching md5 after recovery." \
         || finding "RADOS MISMATCH: probe-before $obj_before/$a, probe-degraded $obj_degraded/$b."
     on $ceph "sudo rados -p volumes rm probe-before; sudo rados -p volumes rm probe-degraded; rm -f /tmp/probe-*" >/dev/null 2>&1
-    finding "$vm_name was down from the power cut until it answered ping again on $other (see timeline); Nova does not evacuate on its own."
+    finding "$vm_name was down from the power cut until it answered ping again on $other (see timeline); ironcloud-evacuator moved and restarted it with no operator action."
 }
 
 scenario_controller() {
