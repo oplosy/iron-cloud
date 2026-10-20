@@ -63,12 +63,19 @@ Findings the tests surfaced (now handled in scripts and runbooks):
 | After the controller outage one compute kept a stale security-group member set (same-department traffic one-way) | Isolation test after recovery; restart the OVS agent on that compute |
 | Writes stall ~27 s when a node with an OSD dies | Expected Ceph behaviour (heartbeat grace); documented |
 
+## Phase 4 — Automation and verification (done)
+
+- [x] CI on every push and PR ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)): shellcheck, unit tests for the scripts' pure functions ([`tests/run.sh`](../tests/run.sh)), `tofu fmt`/`validate`, and [`tofu test`](../platform/tofu/tests/departments.tftest.hcl) with mocked OpenStack: both real requests fit; over-quota, over-limit, platform-CIDR and bad-name requests are rejected at plan time
+- [x] GitOps without exposing the lab ([`platform/gitops.sh`](../platform/gitops.sh)): a PR to `departments/` gets the lab plan as a comment and a `lab/plan` status, planned with main's platform code; merging applies it and reports `lab/apply`. Tested on [PR #1](https://github.com/oplosy/iron-cloud/pull/1): a description change planned as `+0 ~1 -0`, a zero-instance quota rejected with the precondition message, the merge applied
+- [x] Automatic evacuation ([`platform/evacuator.sh`](../platform/evacuator.sh), systemd on ctl1): acts when Nova, ping and Ceph agree a compute node is down; [cmp1 report](../reports/20261020-1650-cmp1-failure.md): evacuated at 107 s, VM answering at 139 s, node re-enabled when it returned, no operator action
+- [x] Off-cluster backups of department boot volumes ([`platform/backup.sh`](../platform/backup.sh), [runbook](runbooks/backup-restore.md)); [restore test](../reports/20261020-1651-ledger-restore-test.md): data overwritten, restored from the host copy, checksum matched
+
 ## Out of scope
 
 | Item | Reason |
 |---|---|
 | Physical hardware | Zero budget; a node failure is simulated by hard-powering-off its VM |
 | Control plane HA (3 controllers, Galera, keepalived) | Not enough RAM; the `ctl1` failure demo shows the consequence instead |
-| Automatic instance HA (Masakari) | Heavy to run; evacuation is manual and timed |
+| Masakari | Heavy to run; a small evacuator covers compute-node failure (Phase 4) |
 | External identity (LDAP/FreeIPA) | Keystone projects and roles cover per-department access |
-| Backups, capacity planning beyond quotas, hardware maintenance processes | Each is a project of its own |
+| Platform database backups, capacity planning beyond quotas, hardware maintenance processes | Each is a project of its own; the platform is rebuilt from the repo and department volumes are backed up (Phase 4) |
