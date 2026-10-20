@@ -26,7 +26,7 @@ EVENTS=() SNAPSHOTS=() FINDINGS=()
 now() { echo $(($(date +%s) - T0)); }
 event() { EVENTS+=("| $(now) | $* |"); echo "  t+$(now)s  $*"; }
 finding() { FINDINGS+=("- $*"); echo "  >> $*"; }
-snapshot() { SNAPSHOTS+=("### $1 (t+$(now)s)" '```' "$(cat)" '```' ''); }
+snapshot() { SNAPSHOTS+=("### $1${T0:+ (t+$(now)s)}" '```' "$(cat)" '```' ''); }
 # wait_for <label> <timeout s> <command...>: records the time the command first succeeds.
 wait_for() {
     local label=$1 end=$(($(date +%s) + $2))
