@@ -169,13 +169,14 @@ EOF
     on $ceph "sudo rados -p volumes rm probe-ctl1-down; rm -f /tmp/probe-*" >/dev/null 2>&1
 
     # Read the in-VM logs: ping prints one line per reply with seq=N; io.log has one epoch per second.
-    # Each line is "<probe> <end> <values...>", end being what a live probe would show now: all probes
-    # started together and busybox ping counts from seq=0, so ping's end is seconds since io.log's first epoch.
+    # Each line is "<probe> <end> <values...>", end being what a live probe would show now. For ping that is
+    # its own "N packets transmitted" (printed on SIGINT): its interval drifts past 1 s here, so wall-clock
+    # time would overstate the last seq and report a tail outage that never happened.
     local logs
     logs=$(vm "$a_fip" <<'EOF'
-end=$(date +%s); start=$(head -1 io.log)
-killall ping; kill $(cat io.pid) 2>/dev/null
-for f in ew inet; do echo "$f $((end - start)) $(grep -o 'seq=[0-9]*' $f.log | cut -d= -f2 | tr '\n' ' ')"; done
+end=$(date +%s)
+killall -INT ping; kill $(cat io.pid) 2>/dev/null; sleep 1
+for f in ew inet; do n=$(grep -o '^[0-9]* packets transmitted' $f.log | cut -d' ' -f1); echo "$f ${n:-0} $(grep -o 'seq=[0-9]*' $f.log | cut -d= -f2 | tr '\n' ' ')"; done
 echo "io $end $(tr '\n' ' ' < io.log)"
 EOF
 )
