@@ -152,8 +152,11 @@ stage_ceph() {
     mkdir -p /etc/kolla/config/{glance,nova,cinder/cinder-volume}
     sudo ceph config generate-minimal-conf | sed 's/^\t//' > /tmp/ceph.conf
     for d in glance nova cinder; do cp /tmp/ceph.conf "/etc/kolla/config/$d/ceph.conf"; done
+    # /etc/kolla belongs to $USER (stage_deps): only ceph needs root, not the redirect.
+    # shellcheck disable=SC2024
     sudo ceph auth get-or-create client.glance mon 'profile rbd' osd 'profile rbd pool=images' mgr 'profile rbd pool=images' \
         > /etc/kolla/config/glance/ceph.client.glance.keyring
+    # shellcheck disable=SC2024
     sudo ceph auth get-or-create client.cinder mon 'profile rbd' \
         osd 'profile rbd pool=volumes, profile rbd pool=vms, profile rbd-read-only pool=images' \
         mgr 'profile rbd pool=volumes, profile rbd pool=vms' \

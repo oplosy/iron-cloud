@@ -27,6 +27,13 @@ now() { echo $(($(date +%s) - T0)); }
 event() { EVENTS+=("| $(now) | $* |"); echo "  t+$(now)s  $*"; }
 finding() { FINDINGS+=("- $*"); echo "  >> $*"; }
 snapshot() { SNAPSHOTS+=("### $1${T0:+ (t+$(now)s)}" '```' "$(cat)" '```' ''); }
+gap_report() { # <label> <unit> <line>: sample count and longest gap, including the one from the last sample to end
+    # A tail of up to 2 is start/read timing jitter, not an outage.
+    awk -v label="$1" -v unit="$2" '{ if (NF < 3) { print label ": no samples"; exit }; max = 0; for (i = 4; i <= NF; i++) { d = $i - $(i-1); if (d > max) max = d }; tail = $2 - $NF; if (tail > 2 && tail > max) max = tail
+        out = label ": " NF-2 " samples, longest gap " max unit
+        if (tail > 2) out = out "; no samples in the last " tail " s before the logs were read (had not resumed by then)"
+        print out }' <<<"$3"
+}
 # wait_for <label> <timeout s> <command...>: records the time the command first succeeds.
 wait_for() {
     local label=$1 end=$(($(date +%s) + $2))
@@ -181,17 +188,13 @@ echo "io $end $(tr '\n' ' ' < io.log)"
 EOF
 )
     [ -n "$logs" ] || finding "PROBE LOGS COULD NOT BE READ from $a_name; the in-VM measurements below are empty."
-    gap_report() { # <label> <unit> <line>: sample count and longest gap, including the one from the last sample to end
-        # A tail of up to 2 is start/read timing jitter, not an outage.
-        awk -v label="$1" -v unit="$2" '{ if (NF < 3) { print label ": no samples"; exit }; max = 0; for (i = 4; i <= NF; i++) { d = $i - $(i-1); if (d > max) max = d }; tail = $2 - $NF; if (tail > 2 && tail > max) max = tail
-            out = label ": " NF-2 " samples, longest gap " max unit
-            if (tail > 2) out = out "; no samples in the last " tail " s before the logs were read (had not resumed by then)"
-            print out }' <<<"$3"
-    }
     finding "East-west ($a_name -> $b_name, same network): $(gap_report "ping seq" "" "$(grep '^ew ' <<<"$logs")") (a gap of 1 means no loss)."
     finding "Routed traffic ($a_name -> 1.1.1.1 via the router on ctl1): $(gap_report "ping seq" " seconds" "$(grep '^inet ' <<<"$logs")")."
     finding "Disk writes inside $a_name (Ceph-backed volume): $(gap_report "io writes" " seconds" "$(grep '^io ' <<<"$logs")")."
 }
+
+# Sourced by tests/run.sh: define the functions only.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
 
 echo "Failure test: $NODE"
 STARTED=$(date '+%Y-%m-%d %H:%M')

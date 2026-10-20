@@ -1,0 +1,7 @@
+# 2 VMs on a 1-instance quota: must fail at plan time.
+description: Over quota
+cidr: 192.168.90.0/24
+quota: {instances: 1, cores: 2, ram_mb: 512, volumes: 2, gigabytes: 2, floating_ips: 2}
+vms:
+  - {name: a, flavor: m1.tiny}
+  - {name: b, flavor: m1.tiny}

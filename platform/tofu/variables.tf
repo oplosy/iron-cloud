@@ -55,3 +55,10 @@ variable "platform_limits" {
     floating_ips = 4
   }
 }
+
+# Read from Nova when null. Tests set it: vcpus/ram are not computed in the provider schema,
+# so tofu test cannot mock them.
+variable "flavor_sizes" {
+  type    = map(object({ vcpus = number, ram = number }))
+  default = null
+}
