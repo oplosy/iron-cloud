@@ -36,10 +36,11 @@ git switch -c add-<name> && git add departments/<name>.yaml && git commit -m "Ad
 git push -u origin add-<name> && gh pr create --fill
 ```
 
-The GitOps agent ([`platform/gitops.sh`](../../platform/gitops.sh)) runs on the Windows host, where the lab is reachable; GitHub never connects to the lab. Run it once, or leave it watching:
+The GitOps agent ([`platform/gitops.sh`](../../platform/gitops.sh)) runs on the Windows host, where the lab is reachable; GitHub never connects to the lab. A scheduled task runs it every 5 minutes while you are logged on (log: `%USERPROFILE%\ironcloud-logs\gitops.log`):
 
 ```bash
-bash platform/gitops.sh once          # or: bash platform/gitops.sh watch 60
+powershell -File platform/gitops-task.ps1             # install (no admin); -Remove to uninstall
+bash platform/gitops.sh once                          # or run it by hand right now
 ```
 
 For the PR it posts the lab plan as a comment and sets the `lab/plan` commit status (e.g. `finance: +0 ~1 -0`, or `finance: error` with the precondition message). The plan uses main's platform code and only the PR's `departments/`, so a PR cannot run its own code on the lab. Merge when the plan is right; on the next run the agent applies main, sets `lab/apply` and comments the result on the merged PR ([example](https://github.com/oplosy/iron-cloud/pull/1)).

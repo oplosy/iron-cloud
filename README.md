@@ -78,7 +78,7 @@ bash platform/up.sh smoke-test.sh                     # CirrOS VM on a Ceph volu
 Departments, through a PR (see the [add-department runbook](docs/runbooks/add-department.md)):
 
 ```bash
-bash platform/gitops.sh watch 60                      # plans open PRs, applies main
+powershell -File platform/gitops-task.ps1              # scheduled task: gitops.sh once every 5 min
 bash platform/up.sh isolation-test.sh                 # pass/fail matrix from inside department VMs
 ```
 
